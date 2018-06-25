@@ -123,16 +123,13 @@ int main()
         bool flags[DIM * 2]{};
         kd_nearest_i_nearer_subtree(root, data.pos, result, flags, 0);
 
+        // distance decreases as we go
         const SearchResult* pResult = result.data();
-        auto predicted = pResult->data;
-        pResult = pResult->next;
         auto alternative = pResult->data;
-        if (alternative != predicted)
-        {
-            pResult = pResult->next;
-            if (pResult->data == alternative)
-                predicted = alternative;
-        }
+        pResult = pResult->next;
+        const bool alternativeWins = alternative == pResult->data;
+        pResult = pResult->next;
+        auto predicted = alternativeWins? alternative : pResult->data;
 
         if (predicted != data.data)
             ++numMismatches;

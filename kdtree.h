@@ -16,7 +16,6 @@ struct kdnode
 {
     AttributeType pos[DIM];
     int data;
-    int dir;
     kdnode *left, *right;
 };
 
@@ -59,7 +58,6 @@ kdnode* insert(std::vector<ObjectInfo*>::iterator begin,
 
         node->left = 0;
         node->right = 0;
-        node->dir = dir;
 
         return node;
     }
@@ -75,7 +73,6 @@ kdnode* insert(std::vector<ObjectInfo*>::iterator begin,
     const auto new_dir = (dir + 1) % DIM;
     node->left = insert(begin, middle, node, new_dir);
     node->right = insert(++middle, end, node, new_dir);
-    node->dir = dir;
 
     return node;
 }

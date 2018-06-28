@@ -62,8 +62,9 @@ xxxx     unsigned byte   ??               pixel
 
 std::istream& operator %(std::istream& s, int32_t& v)
 {
-    s.read((char*)&v, sizeof(v));
-    std::reverse((char*)&v, (char*)(&v + 1));
+    unsigned char buffer[4];
+    s.read((char*)buffer, sizeof(buffer));
+    v = (buffer[0] << 24) + (buffer[1] << 16) + (buffer[2] << 8) + buffer[3];
     return s;
 }
 

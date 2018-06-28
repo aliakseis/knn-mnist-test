@@ -188,23 +188,9 @@ void kd_nearest_i(kdnode *node, const AttributeType *pos,
         kd_nearest_i(nearer_subtree, pos, result, sq_distances, total_distance, new_dir);
     }
 
-    bool do_farther_subtree = false;
     const auto sq_dist = SQ(dist);
-    if (farther_subtree != 0)
-    {
-        /* Check if we have to recurse down by calculating the closest
-        * point of the hyperrect and see if it's closer than our minimum distances. */
-        if (!result.isFull())
-            do_farther_subtree = true;
-        else
-        {
-            //double dist_sq = sq_dist + sq_distances[1 - dir];
-            total_distance += sq_dist - sq_distances[dir];
-            do_farther_subtree = total_distance < result.dist_sq();
-        }
-    }
-
-    if (/*node->pos != pos &&*/ (0 == farther_subtree || do_farther_subtree))
+    total_distance += sq_dist - sq_distances[dir];
+    if (!result.isFull() || total_distance < result.dist_sq())
     {
         /* Check the distance of the point at the current node, compare it with our bests so far */
         //double dist_sq = sq_dist + SQ(node->pos[1 - dir] - pos[1 - dir]);
@@ -213,17 +199,17 @@ void kd_nearest_i(kdnode *node, const AttributeType *pos,
             dist_sq += SQ(node->pos[i] - pos[i]);
 
         result.insert(dist_sq, node);
-    }
 
-    if (do_farther_subtree)
-    {
-        auto save_dist = sq_distances[dir];
-        sq_distances[dir] = sq_dist;
+        if (farther_subtree)
+        {
+            auto save_dist = sq_distances[dir];
+            sq_distances[dir] = sq_dist;
 
-        /* Recurse down into farther subtree */
-        kd_nearest_i(farther_subtree, pos, result, sq_distances, total_distance, new_dir);
+            /* Recurse down into farther subtree */
+            kd_nearest_i(farther_subtree, pos, result, sq_distances, total_distance, new_dir);
 
-        sq_distances[dir] = save_dist;
+            sq_distances[dir] = save_dist;
+        }
     }
 }
 
@@ -258,38 +244,30 @@ void kd_nearest_i_nearer_subtree(kdnode *node, const AttributeType *pos,
     if (flags[flagIdx])
         return;
 
-    bool do_farther_subtree = false;
     const auto sq_dist = SQ(dist);
-    if (farther_subtree != 0)
+    if (!result.isFull() || sq_dist < result.dist_sq())
     {
-        /* Check if we have to recurse down by calculating the closest
-        * point of the hyperrect and see if it's closer than our minimum distances. */
-        do_farther_subtree = (!result.isFull()
-            || sq_dist < result.dist_sq());
+        if (node->pos != pos)
+        {
+            /* Check the distance of the point at the current node, compare it with our bests so far */
+            //double dist_sq = sq_dist + SQ(node->pos[1 - dir] - pos[1 - dir]);
+            DistanceType dist_sq = 0;
+            for (int i = 0; i < DIM; ++i)
+                dist_sq += SQ(node->pos[i] - pos[i]);
 
-        if (!do_farther_subtree)
-            flags[flagIdx] = true;
+            result.insert(dist_sq, node);
+        }
+
+        if (farther_subtree)
+        {
+            DistanceType sq_distances[DIM]{ };
+            //sq_distances[1 - dir] = 0;
+            sq_distances[dir] = sq_dist;
+
+            /* Recurse down into farther subtree */
+            kd_nearest_i(farther_subtree, pos, result, sq_distances, sq_dist, new_dir);
+        }
     }
-
-    if (node->pos != pos && (0 == farther_subtree || do_farther_subtree))
-    {
-        /* Check the distance of the point at the current node, compare it with our bests so far */
-        //double dist_sq = sq_dist + SQ(node->pos[1 - dir] - pos[1 - dir]);
-        DistanceType dist_sq = 0;
-        for (int i = 0; i < DIM; ++i)
-            dist_sq += SQ(node->pos[i] - pos[i]);
-
-        result.insert(dist_sq, node);
-    }
-
-    if (do_farther_subtree)
-    {
-        DistanceType sq_distances[DIM]  { };
-        //sq_distances[1 - dir] = 0;
-        sq_distances[dir] = sq_dist;
-
-        /* Recurse down into farther subtree */
-        kd_nearest_i(farther_subtree, pos, result, sq_distances, sq_dist, new_dir);
-    }
+    else
+        flags[flagIdx] = true;
 }
-

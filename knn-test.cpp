@@ -1,12 +1,14 @@
 ﻿// knn-test.cpp : Defines the entry point for the console application.
 //
 
+#include "nanoflann/include/nanoflann.hpp"
 
 #include <algorithm>
 #include <execution>
 #include <fstream>
 #include <iostream>
 #include <stdint.h>
+#include <time.h>
 
 /*
 
@@ -60,6 +62,40 @@ xxxx     unsigned byte   ??               pixel
 
 #include "kdtree.h"
 
+class PixProvider
+{
+public:
+    PixProvider(ObjectInfos& data) : m_data(data) {}
+    size_t kdtree_get_point_count() const
+    {
+        return m_data.size();
+    }
+
+    // Returns the dim'th component of the idx'th point in the class:
+    // Since this is inlined and the "dim" argument is typically an immediate value, the
+    //  "if/else's" are actually solved at compile time.
+    unsigned char kdtree_get_pt(const size_t idx, const size_t dim) const
+    {
+        return m_data[idx].pos[dim];
+    }
+
+    // Optional bounding-box computation: return false to default to a standard bbox computation loop.
+    //   Return true if the BBOX was already computed by the class and returned in "bb" so it can be avoided to redo it again.
+    //   Look at bb.size() to find out the expected dimensionality (e.g. 2 or 3 for point clouds)
+    template <class BBOX>
+    bool kdtree_get_bbox(BBOX& /* bb */) const { return false; }
+
+private:
+    ObjectInfos& m_data;
+};
+
+// construct a kd-tree index:
+typedef nanoflann::KDTreeSingleIndexAdaptor<
+    nanoflann::L2_Simple_Adaptor<unsigned char, PixProvider, int>,
+    PixProvider,
+    DIM /* dim */
+> my_kd_tree_t;
+
 std::istream& operator %(std::istream& s, int32_t& v)
 {
     unsigned char buffer[4];
@@ -70,7 +106,17 @@ std::istream& operator %(std::istream& s, int32_t& v)
 
 ObjectInfos ReadDataSet(const char* imageFile, const char* labelFile)
 {
-    std::ifstream ifsImages(imageFile, std::ifstream::in | std::ifstream::binary);
+    std::string path(__FILE__);
+    auto pos = path.find_last_of("\\/");
+    if (pos == std::string::npos)
+        path.clear();
+    else
+    {
+        path.resize(pos + 1);
+        path += "datasets/";
+    }
+
+    std::ifstream ifsImages(path + imageFile, std::ifstream::in | std::ifstream::binary);
     int32_t magic;
     ifsImages % magic;
     int32_t numImages;
@@ -78,7 +124,7 @@ ObjectInfos ReadDataSet(const char* imageFile, const char* labelFile)
     int32_t numRows, numCols;
     ifsImages % numRows % numCols;
 
-    std::ifstream ifsLabels(labelFile, std::ifstream::in | std::ifstream::binary);
+    std::ifstream ifsLabels(path + labelFile, std::ifstream::in | std::ifstream::binary);
     ifsLabels % magic;
     int32_t numLabels;
     ifsLabels % numLabels;
@@ -117,7 +163,10 @@ int main()
 
     std::atomic<int> numMismatches = 0;
 
-    std::for_each(std::execution::par, testSet.begin(), testSet.end(), 
+    clock_t start = clock();
+
+    std::for_each(//std::execution::par, 
+        testSet.begin(), testSet.end(), 
     [root, &numMismatches](const auto& data)
     {
         SearchResults result;
@@ -136,7 +185,36 @@ int main()
             ++numMismatches;
     });
 
-    std::cout << "Test cases: " << testSet.size() << "; mismatches: " << numMismatches << '\n';
+    std::cout << "Test cases: " << testSet.size() << "; mismatches: " << numMismatches
+        << "; time: " << (double)(clock() - start) / CLOCKS_PER_SEC <<" seconds\n";
+
+    PixProvider provider(trainingSet);
+    my_kd_tree_t infos(DIM, provider);
+    //infos.buildIndex();
+
+    numMismatches = 0;
+    start = clock();
+    std::for_each(//std::execution::par, 
+        testSet.begin(), testSet.end(),
+        [&trainingSet, &infos, &numMismatches](const auto& data)
+        {
+            enum { bufSize = 3 };
+
+            uint32_t ret_index[bufSize];
+            int out_dist_sqr[bufSize];
+
+            const auto num_results = infos.knnSearch(data.pos, bufSize, &ret_index[0], &out_dist_sqr[0]);
+
+            const auto alternative = trainingSet[ret_index[1]].data;
+            const bool alternativeWins = alternative == trainingSet[ret_index[2]].data;
+            auto predicted = alternativeWins ? alternative : trainingSet[ret_index[0]].data;
+
+            if (predicted != data.data)
+                ++numMismatches;
+        });
+
+    std::cout << "Test cases: " << testSet.size() << "; mismatches: " << numMismatches
+        << "; nanoflann time: " << (double)(clock() - start) / CLOCKS_PER_SEC << " seconds\n";
 
     return 0;
 }

@@ -164,9 +164,9 @@ private:
     SearchResult* m_pFree;
 };
 
-
+template <int dir>
 void kd_nearest_i(kdnode *node, const AttributeType *pos,
-    SearchResults& result, DistanceType* sq_distances, DistanceType total_distance, int dir)
+    SearchResults& result, DistanceType* sq_distances, DistanceType total_distance)
 {
     kdnode *nearer_subtree, *farther_subtree;
 
@@ -185,7 +185,7 @@ void kd_nearest_i(kdnode *node, const AttributeType *pos,
 
     if (nearer_subtree) {
         /* Recurse down into nearer subtree */
-        kd_nearest_i(nearer_subtree, pos, result, sq_distances, total_distance, new_dir);
+        kd_nearest_i<new_dir>(nearer_subtree, pos, result, sq_distances, total_distance);
     }
 
     const auto sq_dist = SQ(dist);
@@ -223,17 +223,16 @@ void kd_nearest_i(kdnode *node, const AttributeType *pos,
             sq_distances[dir] = sq_dist;
 
             /* Recurse down into farther subtree */
-            kd_nearest_i(farther_subtree, pos, result, sq_distances, total_distance, new_dir);
+            kd_nearest_i<new_dir>(farther_subtree, pos, result, sq_distances, total_distance);
 
             sq_distances[dir] = save_dist;
         }
     }
 }
 
-
+template <int dir>
 void kd_nearest_i_nearer_subtree(kdnode *node, const AttributeType *pos,
-    SearchResults& result, bool* flags, DistanceType* sq_distances,
-    int dir)
+    SearchResults& result, bool* flags, DistanceType* sq_distances)
 {
     kdnode *nearer_subtree, *farther_subtree;
     int flagIdx;
@@ -255,7 +254,7 @@ void kd_nearest_i_nearer_subtree(kdnode *node, const AttributeType *pos,
 
     if (nearer_subtree) {
         /* Recurse down into nearer subtree */
-        kd_nearest_i_nearer_subtree(nearer_subtree, pos, result, flags, sq_distances, new_dir);
+        kd_nearest_i_nearer_subtree<new_dir>(nearer_subtree, pos, result, flags, sq_distances);
     }
 
     if (flags[flagIdx])
@@ -282,7 +281,7 @@ void kd_nearest_i_nearer_subtree(kdnode *node, const AttributeType *pos,
             sq_distances[dir] = sq_dist;
 
             /* Recurse down into farther subtree */
-            kd_nearest_i(farther_subtree, pos, result, sq_distances, sq_dist, new_dir);
+            kd_nearest_i<new_dir>(farther_subtree, pos, result, sq_distances, sq_dist);
             sq_distances[dir] = 0;
         }
     }

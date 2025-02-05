@@ -194,11 +194,28 @@ void kd_nearest_i(kdnode *node, const AttributeType *pos,
     {
         /* Check the distance of the point at the current node, compare it with our bests so far */
         //double dist_sq = sq_dist + SQ(node->pos[1 - dir] - pos[1 - dir]);
-        DistanceType dist_sq = 0;
-        for (int i = 0; i < DIM; ++i)
-            dist_sq += SQ(node->pos[i] - pos[i]);
+        if (!result.isFull())
+        {
+            DistanceType dist_sq = 0;
+            for (int i = 0; i < DIM; ++i)
+                dist_sq += SQ(node->pos[i] - pos[i]);
 
-        result.insert(dist_sq, node);
+            result.insert(dist_sq, node);
+        }
+        else
+        {
+            const auto maxDistance = result.dist_sq();
+            DistanceType dist_sq = 0;
+            int i = 0;
+            for (; i < DIM; ++i)
+            {
+                dist_sq += SQ(node->pos[i] - pos[i]);
+                if (dist_sq > maxDistance)
+                    break;
+            }
+            if (i == DIM)
+                result.insert(dist_sq, node);
+        }
 
         if (farther_subtree)
         {
@@ -215,7 +232,7 @@ void kd_nearest_i(kdnode *node, const AttributeType *pos,
 
 
 void kd_nearest_i_nearer_subtree(kdnode *node, const AttributeType *pos,
-    SearchResults& result, bool* flags,
+    SearchResults& result, bool* flags, DistanceType* sq_distances,
     int dir)
 {
     kdnode *nearer_subtree, *farther_subtree;
@@ -238,7 +255,7 @@ void kd_nearest_i_nearer_subtree(kdnode *node, const AttributeType *pos,
 
     if (nearer_subtree) {
         /* Recurse down into nearer subtree */
-        kd_nearest_i_nearer_subtree(nearer_subtree, pos, result, flags, new_dir);
+        kd_nearest_i_nearer_subtree(nearer_subtree, pos, result, flags, sq_distances, new_dir);
     }
 
     if (flags[flagIdx])
@@ -260,12 +277,13 @@ void kd_nearest_i_nearer_subtree(kdnode *node, const AttributeType *pos,
 
         if (farther_subtree)
         {
-            DistanceType sq_distances[DIM]{ };
+            //DistanceType sq_distances[DIM]{ };
             //sq_distances[1 - dir] = 0;
             sq_distances[dir] = sq_dist;
 
             /* Recurse down into farther subtree */
             kd_nearest_i(farther_subtree, pos, result, sq_distances, sq_dist, new_dir);
+            sq_distances[dir] = 0;
         }
     }
     else

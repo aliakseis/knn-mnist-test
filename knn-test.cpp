@@ -171,7 +171,8 @@ int main()
     {
         SearchResults result;
         bool flags[DIM * 2]{};
-        kd_nearest_i_nearer_subtree(root, data.pos, result, flags, 0);
+        DistanceType sq_distances[DIM]{ };
+        kd_nearest_i_nearer_subtree(root, data.pos, result, flags, sq_distances, 0);
 
         // distance decreases as we go
         const SearchResult* pResult = result.data();

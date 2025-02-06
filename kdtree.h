@@ -207,14 +207,30 @@ void kd_nearest_i(kdnode *node, const AttributeType *pos,
             const auto maxDistance = result.dist_sq();
             DistanceType dist_sq = 0;
             int i = 0;
-            for (; i < DIM; ++i)
-            {
-                dist_sq += SQ(node->pos[i] - pos[i]);
+            //for (; i < DIM; ++i)
+            //{
+            //    dist_sq += SQ(node->pos[i] - pos[i]);
+            //    if (dist_sq > maxDistance)
+            //        break;
+            //}
+
+            switch (DIM % 8) {
+            case 0: do { dist_sq += SQ(node->pos[i] - pos[i]); ++i;
+            case 7:      dist_sq += SQ(node->pos[i] - pos[i]); ++i;
+            case 6:      dist_sq += SQ(node->pos[i] - pos[i]); ++i;
+            case 5:      dist_sq += SQ(node->pos[i] - pos[i]); ++i;
+            case 4:      dist_sq += SQ(node->pos[i] - pos[i]); ++i;
+            case 3:      dist_sq += SQ(node->pos[i] - pos[i]); ++i;
+            case 2:      dist_sq += SQ(node->pos[i] - pos[i]); ++i;
+            case 1:      dist_sq += SQ(node->pos[i] - pos[i]); ++i;
                 if (dist_sq > maxDistance)
-                    break;
+                    goto too_far;
+            } while (i < DIM);
             }
-            if (i == DIM)
+
+            //if (i == DIM)
                 result.insert(dist_sq, node);
+            too_far:;
         }
 
         if (farther_subtree)

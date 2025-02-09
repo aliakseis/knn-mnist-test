@@ -16,6 +16,7 @@ struct kdnode
 {
     AttributeType pos[DIM];
     int data;
+    int dir;
     kdnode *left, *right;
 };
 
@@ -45,8 +46,7 @@ private:
 
 kdnode* insert(std::vector<ObjectInfo*>::iterator begin,
     std::vector<ObjectInfo*>::iterator end,
-    kdnode* parent,
-    int dir)
+    kdnode* parent)
 {
     if (begin == end)
         return 0;
@@ -58,8 +58,33 @@ kdnode* insert(std::vector<ObjectInfo*>::iterator begin,
 
         node->left = 0;
         node->right = 0;
+        node->dir = 0;
 
         return node;
+    }
+
+    int dir = 0;
+
+    double maxDisp = 0;
+
+    for (int i = 0; i < DIM; ++i)
+    {
+        double sum = 0;
+        double sqSum = 0;
+
+        for (auto it = begin; it != end; ++it)
+        {
+            double v = (*it)->pos[i];
+            sum += v;
+            sqSum = v * v;
+        }
+
+        const auto disp = sqSum - sum * sum / diff;
+        if (disp > maxDisp)
+        {
+            maxDisp = disp;
+            dir = i;
+        }
     }
 
     int halfSize = diff / 2;
@@ -70,9 +95,10 @@ kdnode* insert(std::vector<ObjectInfo*>::iterator begin,
 
     kdnode* node = *middle;
 
-    const auto new_dir = (dir + 1) % DIM;
-    node->left = insert(begin, middle, node, new_dir);
-    node->right = insert(++middle, end, node, new_dir);
+    //const auto new_dir = (dir + 1) % DIM;
+    node->left = insert(begin, middle, node);// , new_dir);
+    node->right = insert(++middle, end, node);// , new_dir);
+    node->dir = dir;
 
     return node;
 }
@@ -164,11 +190,13 @@ private:
     SearchResult* m_pFree;
 };
 
-template <int dir>
+//template <int dir>
 void kd_nearest_i(kdnode *node, const AttributeType *pos,
     SearchResults& result, DistanceType* sq_distances, DistanceType total_distance)
 {
     kdnode *nearer_subtree, *farther_subtree;
+
+    const auto dir = node->dir;
 
     /* Decide whether to go left or right in the tree */
     const DistanceType dist = pos[dir] - node->pos[dir];
@@ -181,11 +209,11 @@ void kd_nearest_i(kdnode *node, const AttributeType *pos,
         farther_subtree = node->left;
     }
 
-    const auto new_dir = (dir + 1) % DIM;
+    //const auto new_dir = (dir + 1) % DIM;
 
     if (nearer_subtree) {
         /* Recurse down into nearer subtree */
-        kd_nearest_i<new_dir>(nearer_subtree, pos, result, sq_distances, total_distance);
+        kd_nearest_i(nearer_subtree, pos, result, sq_distances, total_distance);
     }
 
     const auto sq_dist = SQ(dist);
@@ -239,19 +267,21 @@ void kd_nearest_i(kdnode *node, const AttributeType *pos,
             sq_distances[dir] = sq_dist;
 
             /* Recurse down into farther subtree */
-            kd_nearest_i<new_dir>(farther_subtree, pos, result, sq_distances, total_distance);
+            kd_nearest_i(farther_subtree, pos, result, sq_distances, total_distance);
 
             sq_distances[dir] = save_dist;
         }
     }
 }
 
-template <int dir>
+//template <int dir>
 void kd_nearest_i_nearer_subtree(kdnode *node, const AttributeType *pos,
     SearchResults& result, bool* flags, DistanceType* sq_distances)
 {
     kdnode *nearer_subtree, *farther_subtree;
     int flagIdx;
+
+    const auto dir = node->dir;
 
     /* Decide whether to go left or right in the tree */
     const DistanceType dist = pos[dir] - node->pos[dir];
@@ -266,11 +296,11 @@ void kd_nearest_i_nearer_subtree(kdnode *node, const AttributeType *pos,
         flagIdx = dir * 2 + 1;
     }
 
-    const auto new_dir = (dir + 1) % DIM;
+    //const auto new_dir = (dir + 1) % DIM;
 
     if (nearer_subtree) {
         /* Recurse down into nearer subtree */
-        kd_nearest_i_nearer_subtree<new_dir>(nearer_subtree, pos, result, flags, sq_distances);
+        kd_nearest_i_nearer_subtree(nearer_subtree, pos, result, flags, sq_distances);
     }
 
     if (flags[flagIdx])
@@ -297,7 +327,7 @@ void kd_nearest_i_nearer_subtree(kdnode *node, const AttributeType *pos,
             sq_distances[dir] = sq_dist;
 
             /* Recurse down into farther subtree */
-            kd_nearest_i<new_dir>(farther_subtree, pos, result, sq_distances, sq_dist);
+            kd_nearest_i(farther_subtree, pos, result, sq_distances, sq_dist);
             sq_distances[dir] = 0;
         }
     }

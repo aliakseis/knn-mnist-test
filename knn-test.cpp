@@ -157,7 +157,7 @@ int main()
         infoPtrs.push_back(&*it);
     }
 
-    auto root = insert(infoPtrs.begin(), infoPtrs.end(), nullptr, 0);
+    auto root = insert(infoPtrs.begin(), infoPtrs.end(), nullptr);
 
     auto testSet = ReadDataSet("t10k-images.idx3-ubyte", "t10k-labels.idx1-ubyte");
 
@@ -172,7 +172,7 @@ int main()
         SearchResults result;
         bool flags[DIM * 2]{};
         DistanceType sq_distances[DIM]{ };
-        kd_nearest_i_nearer_subtree<0>(root, data.pos, result, flags, sq_distances);
+        kd_nearest_i_nearer_subtree(root, data.pos, result, flags, sq_distances);
 
         // distance decreases as we go
         const SearchResult* pResult = result.data();
